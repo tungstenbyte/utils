@@ -1,5 +1,6 @@
-package datautil
+package data
 
+/*
 import (
 	"context"
 	"strconv"
@@ -40,3 +41,4 @@ func FormataData(data_param time.Time) string {
 
 	return dataFormatada
 }
+*/

@@ -3,114 +3,154 @@ package logger
 import (
 	"os"
 
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-// These consts are refering levels/severity from GCP
-const (
-	DEFAULT   = "Default"
-	DEBUG     = "Debug"
-	INFO      = "Info"
-	NOTICE    = "Notice"
-	WARNING   = "Warning"
-	ERROR     = "Error"
-	ALERT     = "Alert"
-	CRITICAL  = "Critical"
-	EMERGENCY = "Emergency"
-)
-
-var (
-	log              *logrus.Logger
-	useSeverityField bool
-)
-
-func init() {
-	log = logrus.New()
-	log.SetOutput(os.Stdout)
-	log.SetFormatter(&logrus.JSONFormatter{})
-	log.SetLevel(logrus.InfoLevel)
-	useSeverityField = true
+type LoggerConfig struct {
+	Development       bool
+	DisableCaller     bool
+	DisableStacktrace bool
+	Encoding          string
+	Level             string
 }
 
-// SetLevel altera o level do logger
-func SetLevel(level string) {
-	lvl, err := logrus.ParseLevel(level)
-	if err != nil {
-		lvl = logrus.InfoLevel
+// Logger methods interface
+type Logger interface {
+	InitLogger(level string)
+	Debug(args ...interface{})
+	Debugf(template string, args ...interface{})
+	Info(args ...interface{})
+	Infof(template string, args ...interface{})
+	Warn(args ...interface{})
+	Warnf(template string, args ...interface{})
+	Error(args ...interface{})
+	Errorf(template string, args ...interface{})
+	DPanic(args ...interface{})
+	DPanicf(template string, args ...interface{})
+	Fatal(args ...interface{})
+	Fatalf(template string, args ...interface{})
+}
+
+type ApiLogger struct {
+	sugarLogger *zap.SugaredLogger
+}
+
+func NewApiLogger() *ApiLogger {
+	return &ApiLogger{}
+}
+
+var loggerLevelMap = map[string]zapcore.Level{
+	"debug":  zapcore.DebugLevel,
+	"info":   zapcore.InfoLevel,
+	"warn":   zapcore.WarnLevel,
+	"error":  zapcore.ErrorLevel,
+	"dpanic": zapcore.DPanicLevel,
+	"panic":  zapcore.PanicLevel,
+	"fatal":  zapcore.FatalLevel,
+}
+
+func (l *ApiLogger) getLoggerLevel(nivel_de_log string) zapcore.Level {
+	level, exist := loggerLevelMap[nivel_de_log]
+	if !exist {
+		return zapcore.DebugLevel
 	}
-	log.SetLevel(lvl)
+
+	return level
 }
 
-// GetLevel recupera o level do logger
-func GetLevel() logrus.Level {
-	return log.GetLevel()
-}
+func (l *ApiLogger) InitLogger(level string) {
 
-// DisableSeverityField it will do disable severity fields on log
-func DisableSeverityField() {
-	useSeverityField = false
-}
+	logLevel := l.getLoggerLevel(level)
 
-// setFieldSeverity will set severity field when it was availble
-func setFieldSeverity(lvl string) logrus.Fields {
-	if useSeverityField {
-		return logrus.Fields{"severity": lvl}
+	logWriter := zapcore.AddSync(os.Stderr)
+
+	var encoderCfg zapcore.EncoderConfig
+	if "l.cfg.Server.Mode" == "Development" {
+		encoderCfg = zap.NewDevelopmentEncoderConfig()
 	} else {
-		return logrus.Fields{}
+		encoderCfg = zap.NewProductionEncoderConfig()
+	}
+
+	var encoder zapcore.Encoder
+	encoderCfg.LevelKey = "LEVEL"
+	encoderCfg.CallerKey = "CALLER"
+	encoderCfg.TimeKey = "TIME"
+	encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout("Jan 02 15:04:05.000000000")
+	encoderCfg.StacktraceKey = ""
+	encoderCfg.NameKey = "NAME"
+	encoderCfg.MessageKey = "MESSAGE"
+
+	if "l.cfg.Logger.Encoding" == "console" {
+		encoder = zapcore.NewConsoleEncoder(encoderCfg)
+	} else {
+		encoder = zapcore.NewJSONEncoder(encoderCfg)
+	}
+
+	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	core := zapcore.NewCore(encoder, logWriter, zap.NewAtomicLevelAt(logLevel))
+	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+
+	l.sugarLogger = logger.Sugar()
+	if err := l.sugarLogger.Sync(); err != nil {
+		l.sugarLogger.Error(err)
 	}
 }
 
-// Default show detail of log
-func Default(args ...interface{}) {
-	log.WithFields(setFieldSeverity(DEFAULT)).Info(args...)
+// Logger methods
+
+func (l *ApiLogger) Debug(args ...interface{}) {
+	l.sugarLogger.Debug(args...)
 }
 
-// Notice show detail of log
-func Notice(args ...interface{}) {
-	log.WithFields(setFieldSeverity(NOTICE)).Info(args...)
+func (l *ApiLogger) Debugf(template string, args ...interface{}) {
+	l.sugarLogger.Debugf(template, args...)
 }
 
-// Warning show detail of log
-func Warning(args ...interface{}) {
-	log.WithFields(setFieldSeverity(WARNING)).Warning(args...)
+func (l *ApiLogger) Info(args ...interface{}) {
+	l.sugarLogger.Info(args...)
 }
 
-// Alert show detail of errors
-func Alert(args ...interface{}) {
-	log.WithFields(setFieldSeverity(ALERT)).Error(args...)
+func (l *ApiLogger) Infof(template string, args ...interface{}) {
+	l.sugarLogger.Infof(template, args...)
 }
 
-// Critical show detail of log and generate a fatal
-func Critical(args ...interface{}) {
-	log.WithFields(setFieldSeverity(CRITICAL)).Fatal(args...)
+func (l *ApiLogger) Warn(args ...interface{}) {
+	l.sugarLogger.Warn(args...)
 }
 
-// Emergency show detail of log and generate a panic
-func Emergency(args ...interface{}) {
-	log.WithFields(setFieldSeverity(EMERGENCY)).Panic(args...)
+func (l *ApiLogger) Warnf(template string, args ...interface{}) {
+	l.sugarLogger.Warnf(template, args...)
 }
 
-// Error exibe detalhes do erro
-func Error(args ...interface{}) {
-	log.WithFields(setFieldSeverity(ERROR)).Error(args...)
+func (l *ApiLogger) Error(args ...interface{}) {
+	l.sugarLogger.Error(args...)
 }
 
-// Info exibe detalhes do log info
-func Info(args ...interface{}) {
-	log.WithFields(setFieldSeverity(INFO)).Info(args...)
+func (l *ApiLogger) Errorf(template string, args ...interface{}) {
+	l.sugarLogger.Errorf(template, args...)
 }
 
-// Debug exibe detalhes do log debug
-func Debug(args ...interface{}) {
-	log.WithFields(setFieldSeverity(DEBUG)).Debug(args...)
+func (l *ApiLogger) DPanic(args ...interface{}) {
+	l.sugarLogger.DPanic(args...)
 }
 
-// Trace exibe detalhes do log trace
-func Trace(args ...interface{}) {
-	log.WithFields(setFieldSeverity(DEBUG)).Trace(args...)
+func (l *ApiLogger) DPanicf(template string, args ...interface{}) {
+	l.sugarLogger.DPanicf(template, args...)
 }
 
-// Fatal exibe detalhes do erro
-func Fatal(args ...interface{}) {
-	log.WithFields(setFieldSeverity(EMERGENCY)).Panic(args...)
+func (l *ApiLogger) Panic(args ...interface{}) {
+	l.sugarLogger.Panic(args...)
+}
+
+func (l *ApiLogger) Panicf(template string, args ...interface{}) {
+	l.sugarLogger.Panicf(template, args...)
+}
+
+func (l *ApiLogger) Fatal(args ...interface{}) {
+	l.sugarLogger.Fatal(args...)
+}
+
+func (l *ApiLogger) Fatalf(template string, args ...interface{}) {
+	l.sugarLogger.Fatalf(template, args...)
 }
