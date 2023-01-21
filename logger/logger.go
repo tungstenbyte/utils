@@ -1,7 +1,9 @@
 package logger
 
 import (
+	"log"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -153,4 +155,16 @@ func (l *ApiLogger) Fatal(args ...interface{}) {
 
 func (l *ApiLogger) Fatalf(template string, args ...interface{}) {
 	l.sugarLogger.Fatalf(template, args...)
+}
+
+func (l *ApiLogger) Chronometer(mensagem string, inicio *time.Time) {
+	fim := time.Now()
+	tempo_execucao := fim.Sub(*inicio)
+	if tempo_execucao == 0 {
+		log.Println("Chronometer -> ", mensagem, " : ", tempo_execucao.Milliseconds(), " millesegundos")
+		return
+	} else {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos")
+	}
+
 }
