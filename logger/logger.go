@@ -32,6 +32,7 @@ type Logger interface {
 	DPanicf(template string, args ...interface{})
 	Fatal(args ...interface{})
 	Fatalf(template string, args ...interface{})
+	Chronometer(mensagem string, inicio *time.Time)
 }
 
 type ApiLogger struct {
