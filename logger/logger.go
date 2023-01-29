@@ -1,12 +1,22 @@
 package logger
 
 import (
-	"log"
 	"os"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+type Duration int64
+
+const (
+	Nanosecond  Duration = 1
+	Microsecond          = 1000 * Nanosecond
+	Millisecond          = 1000 * Microsecond
+	Second               = 1000 * Millisecond
+	Minute               = 60 * Second
+	Hour                 = 60 * Minute
 )
 
 type LoggerConfig struct {
@@ -158,14 +168,70 @@ func (l *ApiLogger) Fatalf(template string, args ...interface{}) {
 	l.sugarLogger.Fatalf(template, args...)
 }
 
+/*
 func (l *ApiLogger) Chronometer(mensagem string, inicio *time.Time) {
 	fim := time.Now()
 	tempo_execucao := fim.Sub(*inicio)
 	if tempo_execucao == 0 {
-		log.Println("Chronometer -> ", mensagem, " : ", tempo_execucao.Milliseconds(), " millesegundos")
+		l.sugarLogger.DPanic("Chronometer -> ", mensagem, " : ", tempo_execucao.Milliseconds(), " millesegundos")
 		return
 	} else {
 		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos")
+	}
+
+}
+*/
+
+func (l *ApiLogger) Chronometer1(mensagem string, inicio *time.Time) {
+	fim := time.Now()
+	tempo_execucao := fim.Sub(*inicio)
+	if tempo_execucao >= time.Duration(Hour) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Hours(), " h")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " s")
+	}
+	if tempo_execucao < time.Duration(Hour) && tempo_execucao >= time.Duration(Minute) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " min - minutos")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " s")
+	}
+	if tempo_execucao < time.Duration(Minute) && tempo_execucao >= time.Duration(Second) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " s - segundos")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " s")
+	}
+	if tempo_execucao < time.Duration(Second) && tempo_execucao >= time.Duration(Millisecond) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Milliseconds(), " ms -  Milessegundos")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " ms")
+	}
+	if tempo_execucao < time.Duration(Millisecond) && tempo_execucao >= time.Duration(Microsecond) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Microseconds(), " us - Microssegundos")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " ms")
+	}
+	if tempo_execucao < time.Duration(Microsecond) && tempo_execucao >= time.Duration(0.000000000000000) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Nanoseconds(), " ns - Nanossegundos")
+		// fmt.Println(mensagem, " : ", tempo_execucao.Seconds(), " ns")
+	}
+
+}
+
+func (l *ApiLogger) Chronometer(mensagem string, inicio *time.Time) {
+	fim := time.Now()
+	tempo_execucao := fim.Sub(*inicio)
+	if tempo_execucao >= time.Duration(Hour) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
+	}
+	if tempo_execucao < time.Duration(Hour) && tempo_execucao >= time.Duration(Minute) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
+	}
+	if tempo_execucao < time.Duration(Minute) && tempo_execucao >= time.Duration(Second) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
+	}
+	if tempo_execucao < time.Duration(Second) && tempo_execucao >= time.Duration(Millisecond) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
+	}
+	if tempo_execucao < time.Duration(Millisecond) && tempo_execucao >= time.Duration(Microsecond) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
+	}
+	if tempo_execucao < time.Duration(Microsecond) && tempo_execucao >= time.Duration(0.000000000000000) {
+		l.sugarLogger.DPanic(mensagem, " : ", tempo_execucao.Seconds(), " segundos.")
 	}
 
 }
